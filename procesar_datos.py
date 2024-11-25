@@ -18,7 +18,7 @@ def load_data(file_name, usecols=None, filters=None, dtypes=None):
             usecols=usecols,
             dtype=dtypes,
             na_values="\\N",  # Manejo de valores nulos
-            encoding="utf-8",  # Cambia a 'latin1' si persiste el problema
+            encoding="utf-8", 
             chunksize=500000
         )
         if filters:
@@ -27,15 +27,12 @@ def load_data(file_name, usecols=None, filters=None, dtypes=None):
             data = pd.concat(chunks)
         print(f"{file_name} cargado: {data.shape[0]} filas, {data.shape[1]} columnas.")
         return data
-    except UnicodeDecodeError:
-        print(f"Error de codificación al cargar {file_name}. Prueba con otra codificación.")
-        return None
     except Exception as e:
         print(f"Error al cargar {file_name}: {e}")
         return None
 
 def process_data():
-    # Cargar title.basics
+    # Cargar y filtrar datos necesarios
     title_basics = load_data(
         "title.basics.tsv",
         usecols=["tconst", "primaryTitle", "startYear", "runtimeMinutes", "genres"],
@@ -43,41 +40,18 @@ def process_data():
         dtypes={"tconst": str, "primaryTitle": str, "startYear": str, "runtimeMinutes": str, "genres": str}
     )
 
-    # Cargar title.ratings
     title_ratings = load_data(
         "title.ratings.tsv",
         usecols=["tconst", "averageRating"],
         dtypes={"tconst": str, "averageRating": float}
     )
 
-    # Cargar title.principals
-    title_principals = load_data(
-        "title.principals.tsv",
-        usecols=["tconst", "nconst", "category"],
-        filters="category == 'director'",
-        dtypes={"tconst": str, "nconst": str, "category": str}
-    )
-
-    # Cargar name.basics
-    name_basics = load_data(
-        "name.basics.tsv",
-        usecols=["nconst", "primaryName"],
-        dtypes={"nconst": str, "primaryName": str}
-    )
-
     if title_basics is not None and title_ratings is not None:
-        print("Uniendo title.basics y title.ratings...")
+        print("Uniendo datasets...")
         movies = pd.merge(title_basics, title_ratings, on="tconst", how="inner")
 
-        # Agregar directores si los archivos están disponibles
-        if title_principals is not None and name_basics is not None:
-            print("Agregando directores...")
-            movies = pd.merge(movies, title_principals, on="tconst", how="left")
-            movies = pd.merge(movies, name_basics, on="nconst", how="left")
-            movies.rename(columns={"primaryName": "Director"}, inplace=True)
-
-        # Filtrar columnas finales
-        movies = movies[["primaryTitle", "averageRating", "runtimeMinutes", "Director", "genres", "startYear"]]
+        # Filtrar columnas relevantes
+        movies = movies[["primaryTitle", "averageRating", "runtimeMinutes", "genres", "startYear"]]
         movies.rename(columns={
             "primaryTitle": "Título",
             "averageRating": "Rating",
@@ -86,16 +60,18 @@ def process_data():
             "startYear": "Año"
         }, inplace=True)
 
-        # Convertir columnas
+        # Convertir columnas a tipo numérico
         movies["Duración"] = pd.to_numeric(movies["Duración"], errors="coerce")
         movies["Año"] = pd.to_numeric(movies["Año"], errors="coerce")
 
-        # Guardar datos
-        output_file = "peliculas_procesadas.csv"
-        movies.to_csv(output_file, index=False)
-        print(f"Datos guardados en {output_file}.")
+        # Mostrar resumen de los datos
+        print("Datos procesados:")
+        print(movies.head())  # Mostrar primeras filas
+        print(f"Total de películas procesadas: {len(movies)}")
+        return movies
     else:
-        print("Error: No se pudieron cargar title.basics o title.ratings correctamente.")
+        print("Error: No se pudieron cargar los archivos necesarios.")
+        return None
 
 if __name__ == "__main__":
-    process_data()
+    processed_data = process_data()
