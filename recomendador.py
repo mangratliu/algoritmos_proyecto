@@ -112,20 +112,36 @@ class Grafo:
         while True:
             print("\n===== Menú de Búsqueda de Películas =====")
             print("1. Buscar película por criterios")
-            print("2. Buscar películas similares")
-            print("3. Mostrar grafo de películas")
-            print("4. Salir")
+            print("2. Buscar similares a una palícula en particular")
+            print("3. Buscar películas relacionadas con varias películas")
+            print("4. Mostrar grafo de películas")
+            print("5. Salir")
 
             opcion = input("Elige una opción: ").strip()
 
             if opcion == "1":
                 self.buscar_peliculas()  # Search for a movie by criteria
+        
             elif opcion == "2":
                 titulo = input("Ingresa el título de la película: ").strip()
-                print(self.busqueda_por_similitud(titulo) ) # Search for similar movies
+                print(self.busqueda_por_similitud(titulo) ) # Search for similar movies            
+            
             elif opcion == "3":
-                self.mostrar_matriz_adyacencia()  # Show the graph of movies
+                titulos = input("Ingresa los títulos de las películas (separados por coma): ").strip().split(',')
+                titulos = [titulo.strip() for titulo in titulos]  # Limpiar espacios
+                recomendaciones = self.busqueda_por_similitud_multiple(titulos)
+                if recomendaciones:
+                    print("Recomendaciones basadas en tus entradas:")
+                    for pelicula in recomendaciones:
+                        print(f"- {pelicula}")
+                else:
+                    print("No se encontraron recomendaciones para las películas ingresadas.")           
+            
+            
+            
             elif opcion == "4":
+                self.mostrar_matriz_adyacencia()  # Show the graph of movies
+            elif opcion == "5":
                 print("¡Hasta luego!")
                 break
             else:
@@ -208,11 +224,31 @@ class Grafo:
         peliculas_encontradas = self.busqueda_avanzada(**criterios)
 
         if peliculas_encontradas:
-            print("\nTop 5 películas encontradas por rating:")
+            print("\nTop películas encontradas por rating:")
             for pelicula in peliculas_encontradas:
                 print(pelicula)
         else:
             print("No se encontraron películas con los criterios dados.")
+
+    def busqueda_por_similitud_multiple(self, titulos, umbral_peso=1):
+        """
+        Busca películas similares a varias películas dadas, considerando las aristas y sus pesos.
+        Sólo considera aristas cuyo peso sea mayor o igual a umbral_peso.
+        """
+        similares = set()  # Usamos un conjunto para evitar duplicados
+
+        for titulo in titulos:
+            if titulo in self.nodos:
+                # Agregar recomendaciones de cada película
+                for vecino, peso in self.obtener_vecinos(titulo):
+                    if peso >= umbral_peso:
+                        similares.add((vecino, peso))  # Usamos un conjunto para evitar duplicados
+            else:
+                print(f"La película '{titulo}' no se encontró en el grafo y se omitirá.")
+
+        # Ordenamos por similitud y limitamos a las 5 mejores recomendaciones
+        similares_ordenados = sorted(similares, key=lambda x: x[1], reverse=True)[:5]
+        return [titulo for titulo, _ in similares_ordenados]
 
     def busqueda_por_similitud(self, titulo, umbral_peso=1):
         """
@@ -220,19 +256,38 @@ class Grafo:
         Sólo considera aristas cuyo peso sea mayor o igual a umbral_peso.
         """
         if titulo not in self.nodos:
+            print(f"La película '{titulo}' no se encuentra en el grafo.")
+            agregar = input("¿Quieres agregar esta película al grafo? (s/n): ").strip().lower()
+            if agregar == 's':
+                self.agregar_pelicula_manual(titulo)
             return []
 
-        similares = set()  # Usamos un conjunto para evitar duplicados
-        # Obtener las películas vecinas y sus pesos
+        similares = set()
         for vecino, peso in self.obtener_vecinos(titulo):
-            if peso >= umbral_peso:  # Filtramos por el peso mínimo
-                similares.add((vecino, peso))  # Añadimos como tupla para ordenar posteriormente
+            if peso >= umbral_peso:
+                similares.add((vecino, peso))
 
-        # Ordenamos las películas similares por el peso de la arista (similitud) y limitamos a 5 resultados
         similares_ordenados = sorted(similares, key=lambda x: x[1], reverse=True)[:5]
-        
-        # Devolvemos solo los títulos de las películas similares
         return [titulo for titulo, _ in similares_ordenados]
+
+    def agregar_pelicula_manual(self, titulo):
+        """
+        Solicita al usuario los datos de una película y la agrega al grafo.
+        """
+        try:
+            print(f"Agregando '{titulo}' al grafo. Por favor, proporciona los datos:")
+            rating = float(input("Rating (0-10): ").strip())
+            votos = int(input("Número de votos: ").strip())
+            duracion = int(input("Duración en minutos: ").strip())
+            director = input("Director: ").strip()
+            genero = input("Géneros (separados por coma): ").strip().split(',')
+            año = int(input("Año: ").strip())
+            
+            # Agregar película al grafo
+            self.agregar_pelicula(titulo, rating, votos, duracion, director, genero, año)
+            print(f"La película '{titulo}' fue agregada con éxito.")
+        except ValueError:
+            print("Error al ingresar los datos. La película no fue agregada.")
 
     # Representación matricial del grafo
     def matriz_adyacencia(self):
